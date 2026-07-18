@@ -256,11 +256,15 @@ async def play(ctx, *, search: str):
     if guild_id not in queues:
         queues[guild_id] = []
 
-    if "youtube.com/playlist" in search or ("youtube.com/watch" in search and "list=" in search):
+    search_query = search.strip()
+    if any(domain in search_query for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"]) and not search_query.startswith(("http://", "https://")):
+        search_query = "https://" + search_query
+
+    if "youtube.com/playlist" in search_query or ("youtube.com/watch" in search_query and "list=" in search_query):
         await ctx.send(embed=create_embed("📋 Carregando playlist...", "Aguarde enquanto adiciono as músicas."))
 
         try:
-            info, ydl = extract_info_with_fallback(YDL_PLAYLIST_OPTIONS, search, download=False)
+            info, ydl = extract_info_with_fallback(YDL_PLAYLIST_OPTIONS, search_query, download=False)
             if 'entries' not in info:
                 await ctx.send(embed=create_embed("❌ Erro", "Não consegui carregar essa playlist.", color=0xE74C3C))
                 return
@@ -285,7 +289,7 @@ async def play(ctx, *, search: str):
             await ctx.send(embed=create_embed("❌ Erro", f"Erro ao carregar playlist: {e}", color=0xE74C3C))
             return
 
-    resolved_url = resolve_music_url(search)
+    resolved_url = resolve_music_url(search_query)
     await ctx.send(embed=create_embed("🔍 Buscando...", "Procurando sua música, aguarde..."))
 
     try:
