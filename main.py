@@ -49,25 +49,29 @@ def create_embed(title, description="", color=EMBED_COLOR):
     return embed
 
 
-def extract_info_with_fallback(ydl_opts, url, download=False):
-    cookies_file = os.path.join(os.path.dirname(__file__), 'cookies.txt')
-    opts = ydl_opts.copy()
-    
-    if os.path.exists(cookies_file):
-        opts['cookiefile'] = cookies_file
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            return ydl.extract_info(url, download=download), ydl
+async def extract_info_with_fallback(ydl_opts, url, download=False):
+    def sync_extract():
+        cookies_file = os.path.join(os.path.dirname(__file__), 'cookies.txt')
+        opts = ydl_opts.copy()
+        
+        if os.path.exists(cookies_file):
+            opts['cookiefile'] = cookies_file
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                return ydl.extract_info(url, download=download), ydl
 
-    opts_with_browser = opts.copy()
-    opts_with_browser['cookiesfrombrowser'] = ('chrome', 'firefox', 'edge', 'brave', 'opera')
-    try:
-        ydl = yt_dlp.YoutubeDL(opts_with_browser)
-        info = ydl.extract_info(url, download=download)
-        return info, ydl
-    except Exception:
-        ydl = yt_dlp.YoutubeDL(opts)
-        info = ydl.extract_info(url, download=download)
-        return info, ydl
+        opts_with_browser = opts.copy()
+        opts_with_browser['cookiesfrombrowser'] = ('chrome', 'firefox', 'edge', 'brave', 'opera')
+        try:
+            ydl = yt_dlp.YoutubeDL(opts_with_browser)
+            info = ydl.extract_info(url, download=download)
+            return info, ydl
+        except Exception:
+            ydl = yt_dlp.YoutubeDL(opts)
+            info = ydl.extract_info(url, download=download)
+            return info, ydl
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, sync_extract)
 
 
 def resolve_music_url(url):
@@ -116,7 +120,7 @@ async def play_song(ctx, url_or_query):
         afk_tasks[guild_id].cancel()
 
     try:
-        info, ydl = extract_info_with_fallback(YDL_OPTIONS, url_or_query, download=False)
+        info, ydl = await extract_info_with_fallback(YDL_OPTIONS, url_or_query, download=False)
 
         if 'entries' in info:
             entries = info['entries']
@@ -140,7 +144,7 @@ async def play_song(ctx, url_or_query):
             temp_file = os.path.join(temp_dir, f'{guild_id}.opus')
 
             dl_opts = {**YDL_OPTIONS, 'outtmpl': temp_file.replace('.opus', '.%(ext)s')}
-            info, ydl = extract_info_with_fallback(dl_opts, url_or_query, download=True)
+            info, ydl = await extract_info_with_fallback(dl_opts, url_or_query, download=True)
             if 'entries' in info:
                 video = info['entries'][0]
             else:
@@ -255,17 +259,14 @@ async def play(ctx, *, search: str):
         queues[guild_id] = []
 
     search_query = search.strip()
-    if any(domain in search_query for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"]):
-        if not search_query.startswith(("http://", "https://")):
-            search_query = "https://" + search_query
-    else:
-        search_query = f"ytsearch1:{search_query}"
+    if any(domain in search_query for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"]) and not search_query.startswith(("http://", "https://")):
+        search_query = "https://" + search_query
 
     if "youtube.com/playlist" in search_query or ("youtube.com/watch" in search_query and "list=" in search_query):
         await ctx.send(embed=create_embed("📋 Carregando playlist...", "Aguarde enquanto adiciono as músicas."))
 
         try:
-            info, ydl = extract_info_with_fallback(YDL_PLAYLIST_OPTIONS, search_query, download=False)
+            info, ydl = await extract_info_with_fallback(YDL_PLAYLIST_OPTIONS, search_query, download=False)
             if 'entries' not in info:
                 await ctx.send(embed=create_embed("❌ Erro", "Não consegui carregar essa playlist.", color=0xE74C3C))
                 return
@@ -294,7 +295,7 @@ async def play(ctx, *, search: str):
     await ctx.send(embed=create_embed("🔍 Buscando...", "Procurando sua música, aguarde..."))
 
     try:
-        info, ydl = extract_info_with_fallback(YDL_OPTIONS, resolved_url, download=False)
+        info, ydl = await extract_info_with_fallback(YDL_OPTIONS, resolved_url, download=False)
         if 'entries' in info:
             entries = info['entries']
             if not entries:
