@@ -50,6 +50,27 @@ def create_embed(title, description="", color=EMBED_COLOR):
     return embed
 
 
+def extract_info_with_fallback(ydl_opts, url, download=False):
+    """Executa o extract_info do yt-dlp tentando usar cookies se necessário."""
+    cookies_file = os.path.join(os.path.dirname(__file__), 'cookies.txt')
+    opts = ydl_opts.copy()
+    if os.path.exists(cookies_file):
+        opts['cookiefile'] = cookies_file
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.extract_info(url, download=download), ydl
+
+    opts_with_browser = opts.copy()
+    opts_with_browser['cookiesfrombrowser'] = ('chrome', 'firefox', 'edge', 'brave', 'opera')
+    try:
+        ydl = yt_dlp.YoutubeDL(opts_with_browser)
+        info = ydl.extract_info(url, download=download)
+        return info, ydl
+    except Exception:
+        ydl = yt_dlp.YoutubeDL(opts)
+        info = ydl.extract_info(url, download=download)
+        return info, ydl
+
+
 def resolve_music_url(url):
     """Resolve URLs do Spotify e Deezer para buscas no YouTube."""
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
@@ -99,22 +120,21 @@ async def play_song(ctx, url_or_query):
         afk_tasks[guild_id].cancel()
 
     try:
-        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-            info = ydl.extract_info(url_or_query, download=False)
+        info, ydl = extract_info_with_fallback(YDL_OPTIONS, url_or_query, download=False)
 
-            if 'entries' in info:
-                entries = info['entries']
-                if not entries:
-                    await ctx.send(embed=create_embed("😕 Sem resultados", "Não encontrei nenhum resultado para essa busca."))
-                    return
-                video = entries[0]
-            else:
-                video = info
+        if 'entries' in info:
+            entries = info['entries']
+            if not entries:
+                await ctx.send(embed=create_embed("😕 Sem resultados", "Não encontrei nenhum resultado para essa busca."))
+                return
+            video = entries[0]
+        else:
+            video = info
 
-            audio_url = video['url']
-            titulo = video['title']
-            extractor = video.get('extractor', '')
-            webpage_url = video.get('webpage_url', url_or_query)
+        audio_url = video['url']
+        titulo = video['title']
+        extractor = video.get('extractor', '')
+        webpage_url = video.get('webpage_url', url_or_query)
 
         current_song[guild_id] = {'title': titulo, 'url': webpage_url}
 
@@ -124,13 +144,12 @@ async def play_song(ctx, url_or_query):
             temp_file = os.path.join(temp_dir, f'{guild_id}.opus')
 
             dl_opts = {**YDL_OPTIONS, 'outtmpl': temp_file.replace('.opus', '.%(ext)s')}
-            with yt_dlp.YoutubeDL(dl_opts) as ydl:
-                info = ydl.extract_info(url_or_query, download=True)
-                if 'entries' in info:
-                    video = info['entries'][0]
-                else:
-                    video = info
-                downloaded_file = ydl.prepare_filename(video)
+            info, ydl = extract_info_with_fallback(dl_opts, url_or_query, download=True)
+            if 'entries' in info:
+                video = info['entries'][0]
+            else:
+                video = info
+            downloaded_file = ydl.prepare_filename(video)
 
             source = discord.FFmpegPCMAudio(downloaded_file, options='-ar 48000 -ac 2')
             vol = volume_level.get(guild_id, 0.5)
@@ -244,19 +263,18 @@ async def play(ctx, *, search: str):
         await ctx.send(embed=create_embed("📋 Carregando playlist...", "Aguarde enquanto adiciono as músicas."))
 
         try:
-            with yt_dlp.YoutubeDL(YDL_PLAYLIST_OPTIONS) as ydl:
-                info = ydl.extract_info(search, download=False)
-                if 'entries' not in info:
-                    await ctx.send(embed=create_embed("❌ Erro", "Não consegui carregar essa playlist.", color=0xE74C3C))
-                    return
+            info, ydl = extract_info_with_fallback(YDL_PLAYLIST_OPTIONS, search, download=False)
+            if 'entries' not in info:
+                await ctx.send(embed=create_embed("❌ Erro", "Não consegui carregar essa playlist.", color=0xE74C3C))
+                return
 
-                count = 0
-                for entry in info['entries']:
-                    if entry:
-                        video_url = entry.get('url') or entry.get('webpage_url') or f"https://www.youtube.com/watch?v={entry.get('id')}"
-                        video_title = entry.get('title', 'Título desconhecido')
-                        queues[guild_id].append({'url': video_url, 'title': video_title})
-                        count += 1
+            count = 0
+            for entry in info['entries']:
+                if entry:
+                    video_url = entry.get('url') or entry.get('webpage_url') or f"https://www.youtube.com/watch?v={entry.get('id')}"
+                    video_title = entry.get('title', 'Título desconhecido')
+                    queues[guild_id].append({'url': video_url, 'title': video_title})
+                    count += 1
 
             await ctx.send(embed=create_embed("✅ Playlist adicionada", f"**{count}** músicas foram adicionadas à fila!"))
 
@@ -274,19 +292,18 @@ async def play(ctx, *, search: str):
     await ctx.send(embed=create_embed("🔍 Buscando...", "Procurando sua música, aguarde..."))
 
     try:
-        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-            info = ydl.extract_info(resolved_url, download=False)
-            if 'entries' in info:
-                entries = info['entries']
-                if not entries:
-                    await ctx.send(embed=create_embed("😕 Sem resultados", "Não encontrei nenhum resultado para essa busca."))
-                    return
-                video = entries[0]
-            else:
-                video = info
+        info, ydl = extract_info_with_fallback(YDL_OPTIONS, resolved_url, download=False)
+        if 'entries' in info:
+            entries = info['entries']
+            if not entries:
+                await ctx.send(embed=create_embed("😕 Sem resultados", "Não encontrei nenhum resultado para essa busca."))
+                return
+            video = entries[0]
+        else:
+            video = info
 
-            titulo = video['title']
-            original_url = video['webpage_url']
+        titulo = video['title']
+        original_url = video['webpage_url']
 
         if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
             queues[guild_id].append({'url': original_url, 'title': titulo})

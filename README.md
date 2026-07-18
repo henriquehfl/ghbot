@@ -44,8 +44,8 @@ Bot de música multiplataforma para Discord, feito em Python. Aceita links do **
 
 ```bash
 # Clone o repositório
-git clone https://github.com/SEU_USUARIO/bot-discord.git
-cd bot-discord
+git clone https://github.com/henriquehfl/ghbot.git
+cd ghbot
 
 # Crie e ative o ambiente virtual
 python -m venv venv
