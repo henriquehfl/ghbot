@@ -15,11 +15,6 @@ YDL_OPTIONS = {
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
-    'extractor_args': {
-        'youtube': {
-            'player_client': ['android', 'web'],
-        }
-    },
 }
 
 YDL_PLAYLIST_OPTIONS = {
@@ -28,11 +23,6 @@ YDL_PLAYLIST_OPTIONS = {
     'quiet': True,
     'no_warnings': True,
     'extract_flat': True,
-    'extractor_args': {
-        'youtube': {
-            'player_client': ['android', 'web'],
-        }
-    },
 }
 
 FFMPEG_OPTIONS = {
