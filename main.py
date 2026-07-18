@@ -44,16 +44,15 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 
 def create_embed(title, description="", color=EMBED_COLOR):
-    """Cria um embed padrão com estilo consistente."""
     embed = discord.Embed(title=title, description=description, color=color)
     embed.set_footer(text="GhBot 🎶")
     return embed
 
 
 def extract_info_with_fallback(ydl_opts, url, download=False):
-    """Executa o extract_info do yt-dlp tentando usar cookies se necessário."""
     cookies_file = os.path.join(os.path.dirname(__file__), 'cookies.txt')
     opts = ydl_opts.copy()
+    
     if os.path.exists(cookies_file):
         opts['cookiefile'] = cookies_file
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -72,7 +71,6 @@ def extract_info_with_fallback(ydl_opts, url, download=False):
 
 
 def resolve_music_url(url):
-    """Resolve URLs do Spotify e Deezer para buscas no YouTube."""
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
 
     if "spotify.com" in url:
@@ -98,7 +96,6 @@ def resolve_music_url(url):
 
 
 async def afk_timer(ctx):
-    """Desconecta o bot após 5 minutos de inatividade."""
     await asyncio.sleep(300)
     if ctx.voice_client and not ctx.voice_client.is_playing():
         guild_id = ctx.guild.id
@@ -113,7 +110,6 @@ async def afk_timer(ctx):
 
 
 async def play_song(ctx, url_or_query):
-    """Extrai o áudio da URL e reproduz no canal de voz."""
     guild_id = ctx.guild.id
 
     if guild_id in afk_tasks and not afk_tasks[guild_id].done():
@@ -178,12 +174,10 @@ async def play_song(ctx, url_or_query):
 
 
 def check_queue(ctx):
-    """Ponte síncrona entre o callback do player e a coroutine play_next."""
     asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop)
 
 
 async def play_next(ctx):
-    """Toca a próxima música da fila ou repete se o loop estiver ativo."""
     guild_id = ctx.guild.id
 
     if loop_mode.get(guild_id, False) and guild_id in current_song:
@@ -197,6 +191,7 @@ async def play_next(ctx):
         if guild_id in current_song:
             del current_song[guild_id]
         await ctx.send(embed=create_embed("💤 Fila vazia", "Use `!play` para adicionar mais músicas."))
+        
         if guild_id in afk_tasks and not afk_tasks[guild_id].done():
             afk_tasks[guild_id].cancel()
         afk_tasks[guild_id] = bot.loop.create_task(afk_timer(ctx))
