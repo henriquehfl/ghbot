@@ -15,6 +15,7 @@ YDL_OPTIONS = {
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
+    'js_runtimes': ['node'],
 }
 
 YDL_PLAYLIST_OPTIONS = {
@@ -23,6 +24,7 @@ YDL_PLAYLIST_OPTIONS = {
     'quiet': True,
     'no_warnings': True,
     'extract_flat': True,
+    'js_runtimes': ['node'],
 }
 
 FFMPEG_OPTIONS = {
