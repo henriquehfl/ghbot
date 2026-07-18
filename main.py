@@ -15,7 +15,6 @@ YDL_OPTIONS = {
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
-    'default_search': 'ytsearch',
 }
 
 YDL_PLAYLIST_OPTIONS = {
@@ -24,7 +23,6 @@ YDL_PLAYLIST_OPTIONS = {
     'quiet': True,
     'no_warnings': True,
     'extract_flat': True,
-    'default_search': 'ytsearch',
 }
 
 FFMPEG_OPTIONS = {
@@ -257,8 +255,11 @@ async def play(ctx, *, search: str):
         queues[guild_id] = []
 
     search_query = search.strip()
-    if any(domain in search_query for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"]) and not search_query.startswith(("http://", "https://")):
-        search_query = "https://" + search_query
+    if any(domain in search_query for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"]):
+        if not search_query.startswith(("http://", "https://")):
+            search_query = "https://" + search_query
+    else:
+        search_query = f"ytsearch1:{search_query}"
 
     if "youtube.com/playlist" in search_query or ("youtube.com/watch" in search_query and "list=" in search_query):
         await ctx.send(embed=create_embed("📋 Carregando playlist...", "Aguarde enquanto adiciono as músicas."))
