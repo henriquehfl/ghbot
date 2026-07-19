@@ -15,6 +15,7 @@ YDL_OPTIONS = {
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
+    'force_ipv4': True,
 }
 
 YDL_PLAYLIST_OPTIONS = {
@@ -23,6 +24,7 @@ YDL_PLAYLIST_OPTIONS = {
     'quiet': True,
     'no_warnings': True,
     'extract_flat': True,
+    'force_ipv4': True,
 }
 
 FFMPEG_OPTIONS = {
@@ -113,23 +115,25 @@ async def afk_timer(ctx):
         await ctx.send(embed=create_embed("💤 Desconectado", "Saí por inatividade de 5 minutos."))
 
 
-async def play_song(ctx, url_or_query):
+async def play_song(ctx, url_or_query, video_info=None):
     guild_id = ctx.guild.id
 
     if guild_id in afk_tasks and not afk_tasks[guild_id].done():
         afk_tasks[guild_id].cancel()
 
     try:
-        info, ydl = await extract_info_with_fallback(YDL_OPTIONS, url_or_query, download=False)
-
-        if 'entries' in info:
-            entries = info['entries']
-            if not entries:
-                await ctx.send(embed=create_embed("😕 Sem resultados", "Não encontrei nenhum resultado para essa busca."))
-                return
-            video = entries[0]
+        if video_info is None:
+            info, ydl = await extract_info_with_fallback(YDL_OPTIONS, url_or_query, download=False)
+            if 'entries' in info:
+                entries = info['entries']
+                if not entries:
+                    await ctx.send(embed=create_embed("😕 Sem resultados", "Não encontrei nenhum resultado para essa busca."))
+                    return
+                video = entries[0]
+            else:
+                video = info
         else:
-            video = info
+            video = video_info
 
         audio_url = video['url']
         titulo = video['title']
@@ -312,7 +316,7 @@ async def play(ctx, *, search: str):
             queues[guild_id].append({'url': original_url, 'title': titulo})
             await ctx.send(embed=create_embed("📝 Adicionado à fila", f"**{titulo}**\nPosição: `#{len(queues[guild_id])}`"))
         else:
-            await play_song(ctx, original_url)
+            await play_song(ctx, original_url, video_info=video)
 
     except Exception as e:
         await ctx.send(embed=create_embed("❌ Erro", f"Erro ao processar o pedido: {e}", color=0xE74C3C))
