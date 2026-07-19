@@ -263,10 +263,15 @@ async def play(ctx, *, search: str):
         queues[guild_id] = []
 
     search_query = search.strip()
-    if any(domain in search_query for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"]) and not search_query.startswith(("http://", "https://")):
-        search_query = "https://" + search_query
+    if any(domain in search_query for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"]):
+        if not search_query.startswith(("http://", "https://")):
+            search_query = "https://" + search_query
+        if "list=" in search_query:
+            playlist_id_match = re.search(r"[?&]list=([^&]+)", search_query)
+            if playlist_id_match:
+                search_query = f"https://www.youtube.com/playlist?list={playlist_id_match.group(1)}"
 
-    if "youtube.com/playlist" in search_query or ("youtube.com/watch" in search_query and "list=" in search_query):
+    if "youtube.com/playlist" in search_query:
         await ctx.send(embed=create_embed("📋 Carregando playlist...", "Aguarde enquanto adiciono as músicas."))
 
         try:
