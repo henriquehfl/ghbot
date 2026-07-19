@@ -23,6 +23,7 @@ YDL_PLAYLIST_OPTIONS = {
     'noplaylist': False,
     'quiet': True,
     'no_warnings': True,
+    'extract_flat': 'in_playlist',
     'force_ipv4': True,
 }
 
@@ -278,7 +279,6 @@ async def play(ctx, *, search: str):
         try:
             print(f"[PLAYLIST] Extraindo: {search_query}")
             info, ydl = await extract_info_with_fallback(YDL_PLAYLIST_OPTIONS, search_query, download=False)
-            print(f"[PLAYLIST] Info keys: {list(info.keys())}")
 
             if 'entries' not in info:
                 print(f"[PLAYLIST] Sem 'entries' no resultado")
@@ -288,24 +288,32 @@ async def play(ctx, *, search: str):
             entries = list(info['entries'])
             print(f"[PLAYLIST] Total de entries: {len(entries)}")
 
-            count = 0
+            songs = []
             for entry in entries:
-                if entry:
-                    video_url = entry.get('webpage_url') or entry.get('url', '')
-                    if not video_url and entry.get('id'):
-                        video_url = f"https://www.youtube.com/watch?v={entry['id']}"
-                    video_title = entry.get('title', 'Título desconhecido')
-                    if video_url:
-                        queues[guild_id].append({'url': video_url, 'title': video_title})
-                        count += 1
+                if entry and entry.get('id'):
+                    video_url = f"https://www.youtube.com/watch?v={entry['id']}"
+                    video_title = entry.get('title') or 'Título desconhecido'
+                    songs.append({'url': video_url, 'title': video_title})
 
-            print(f"[PLAYLIST] {count} músicas adicionadas à fila")
-            await ctx.send(embed=create_embed("✅ Playlist adicionada", f"**{count}** músicas foram adicionadas à fila!"))
+            if not songs:
+                await ctx.send(embed=create_embed("😕 Sem resultados", "Não encontrei músicas nessa playlist."))
+                return
+
+            first_song = songs[0]
+            rest = songs[1:]
+
+            queues[guild_id].extend(rest)
+
+            count_msg = f"**{len(songs)}** músicas encontradas!"
+            if rest:
+                count_msg += f"\n🎵 Tocando a primeira e **{len(rest)}** na fila."
+            await ctx.send(embed=create_embed("✅ Playlist carregada", count_msg))
 
             if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
-                if queues[guild_id]:
-                    next_song = queues[guild_id].pop(0)
-                    await play_song(ctx, next_song['url'])
+                await play_song(ctx, first_song['url'])
+            else:
+                queues[guild_id].insert(0, first_song)
+
             return
 
         except Exception as e:
