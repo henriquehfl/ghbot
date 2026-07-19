@@ -23,7 +23,6 @@ YDL_PLAYLIST_OPTIONS = {
     'noplaylist': False,
     'quiet': True,
     'no_warnings': True,
-    'extract_flat': True,
     'force_ipv4': True,
 }
 
@@ -265,40 +264,42 @@ async def play(ctx, *, search: str):
     search_query = search.strip()
     search_lower = search_query.lower()
     is_url = any(domain in search_lower for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"])
+    is_playlist = False
 
     if is_url:
         if not search_query.startswith(("http://", "https://")):
             search_query = "https://" + search_query
         if "list=" in search_query:
-            playlist_id_match = re.search(r"[?&]list=([^&]+)", search_query)
-            if playlist_id_match:
-                playlist_id = playlist_id_match.group(1)
-                if playlist_id.startswith("RD"):
-                    video_id_match = re.search(r"[?&]v=([^&]+)", search_query)
-                    if video_id_match:
-                        search_query = f"https://www.youtube.com/watch?v={video_id_match.group(1)}"
-                else:
-                    search_query = f"https://www.youtube.com/playlist?list={playlist_id}"
+            is_playlist = True
 
-    if "youtube.com/playlist" in search_query:
+    if is_playlist:
         await ctx.send(embed=create_embed("📋 Carregando playlist...", "Aguarde enquanto adiciono as músicas."))
 
         try:
+            print(f"[PLAYLIST] Extraindo: {search_query}")
             info, ydl = await extract_info_with_fallback(YDL_PLAYLIST_OPTIONS, search_query, download=False)
+            print(f"[PLAYLIST] Info keys: {list(info.keys())}")
+
             if 'entries' not in info:
+                print(f"[PLAYLIST] Sem 'entries' no resultado")
                 await ctx.send(embed=create_embed("❌ Erro", "Não consegui carregar essa playlist.", color=0xE74C3C))
                 return
 
+            entries = list(info['entries'])
+            print(f"[PLAYLIST] Total de entries: {len(entries)}")
+
             count = 0
-            for entry in info['entries']:
+            for entry in entries:
                 if entry:
-                    video_id = entry.get('id', '')
-                    video_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else entry.get('url', '')
+                    video_url = entry.get('webpage_url') or entry.get('url', '')
+                    if not video_url and entry.get('id'):
+                        video_url = f"https://www.youtube.com/watch?v={entry['id']}"
                     video_title = entry.get('title', 'Título desconhecido')
                     if video_url:
                         queues[guild_id].append({'url': video_url, 'title': video_title})
                         count += 1
 
+            print(f"[PLAYLIST] {count} músicas adicionadas à fila")
             await ctx.send(embed=create_embed("✅ Playlist adicionada", f"**{count}** músicas foram adicionadas à fila!"))
 
             if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
@@ -308,6 +309,7 @@ async def play(ctx, *, search: str):
             return
 
         except Exception as e:
+            print(f"[PLAYLIST] Erro: {e}")
             await ctx.send(embed=create_embed("❌ Erro", f"Erro ao carregar playlist: {e}", color=0xE74C3C))
             return
 
