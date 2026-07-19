@@ -269,7 +269,13 @@ async def play(ctx, *, search: str):
         if "list=" in search_query:
             playlist_id_match = re.search(r"[?&]list=([^&]+)", search_query)
             if playlist_id_match:
-                search_query = f"https://www.youtube.com/playlist?list={playlist_id_match.group(1)}"
+                playlist_id = playlist_id_match.group(1)
+                if playlist_id.startswith("RD"):
+                    video_id_match = re.search(r"[?&]v=([^&]+)", search_query)
+                    if video_id_match:
+                        search_query = f"https://www.youtube.com/watch?v={video_id_match.group(1)}"
+                else:
+                    search_query = f"https://www.youtube.com/playlist?list={playlist_id}"
 
     if "youtube.com/playlist" in search_query:
         await ctx.send(embed=create_embed("📋 Carregando playlist...", "Aguarde enquanto adiciono as músicas."))
