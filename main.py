@@ -263,7 +263,10 @@ async def play(ctx, *, search: str):
         queues[guild_id] = []
 
     search_query = search.strip()
-    if any(domain in search_query for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"]):
+    search_lower = search_query.lower()
+    is_url = any(domain in search_lower for domain in ["youtube.com", "youtu.be", "soundcloud.com", "spotify.com", "deezer.com"])
+
+    if is_url:
         if not search_query.startswith(("http://", "https://")):
             search_query = "https://" + search_query
         if "list=" in search_query:
@@ -289,10 +292,12 @@ async def play(ctx, *, search: str):
             count = 0
             for entry in info['entries']:
                 if entry:
-                    video_url = entry.get('url') or entry.get('webpage_url') or f"https://www.youtube.com/watch?v={entry.get('id')}"
+                    video_id = entry.get('id', '')
+                    video_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else entry.get('url', '')
                     video_title = entry.get('title', 'Título desconhecido')
-                    queues[guild_id].append({'url': video_url, 'title': video_title})
-                    count += 1
+                    if video_url:
+                        queues[guild_id].append({'url': video_url, 'title': video_title})
+                        count += 1
 
             await ctx.send(embed=create_embed("✅ Playlist adicionada", f"**{count}** músicas foram adicionadas à fila!"))
 
@@ -305,6 +310,9 @@ async def play(ctx, *, search: str):
         except Exception as e:
             await ctx.send(embed=create_embed("❌ Erro", f"Erro ao carregar playlist: {e}", color=0xE74C3C))
             return
+
+    if not is_url:
+        search_query = f"ytsearch1:{search_query}"
 
     resolved_url = resolve_music_url(search_query)
     await ctx.send(embed=create_embed("🔍 Buscando...", "Procurando sua música, aguarde..."))
